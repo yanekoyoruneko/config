@@ -1,0 +1,5 @@
+#!/bin/sh
+set -xe
+for file in *; do
+    test "$file" != "$(basename $0)" && stow -v1 --no-folding "$file"
+done

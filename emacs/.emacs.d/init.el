@@ -16,23 +16,34 @@
 (setq gc-cons-threshold most-positive-fixnum) ; fix gc
 (add-hook 'emacs-startup-hook (lambda () (setq gc-cons-threshold (expt 2 23))))
 
+(load "server")
+(unless (server-running-p) (server-start))
 
 (eval-when-compile
   (defun emacs-path (path) (expand-file-name path user-emacs-directory))
   (setq custom-file (emacs-path "custom.el"))
-  (load custom-file))
+  (when (file-exists-p custom-file) (load custom-file)))
 
+(require 'package)
+(setq package-enable-at-startup nil)
+(add-to-list 'package-archives '("melpa"  . "https://melpa.org/packages/"))
+(add-to-list 'package-archives '("gnu"    . "https://elpa.gnu.org/packages/"))
+(add-to-list 'package-archives '("nongnu" . "https://elpa.nongnu.org/nongnu/"))
+
+(package-initialize)
+
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+
+(eval-when-compile
+  (require 'use-package))
 
 (use-package use-package
   :init
   (setq use-package-always-ensure t)
   (setq use-package-always-demand t)	; emacs server so load all at start
-  (setq use-package-enable-imenu-support t)
-  :custom
-  (package-archives
-   '(("melpa"  . "https://melpa.org/packages/")
-     ("gnu"    . "https://elpa.gnu.org/packages/")
-     ("nongnu" . "https://elpa.nongnu.org/nongnu/"))))
+  (setq use-package-enable-imenu-support t))
 
 
 
@@ -40,7 +51,7 @@
 ;;
 (use-package emacs
   :custom
-  (custom-enabled-themes '(modus-operandi))
+  (custom-enabled-themes '(modus-vivendi))
   (frame-title-format '("%b"))
   (menu-bar-mode nil)
   (tool-bar-mode nil)
@@ -54,6 +65,7 @@
   :hook
   (prog-mode . display-line-numbers-mode)
   (prog-mode . prettify-symbols-mode))
+
 
 
 ;; BASIC
@@ -92,12 +104,6 @@
   (before-save . delete-trailing-whitespace)
   (prog-mode   . abbrev-mode))
 
-(use-package server
-  :ensure nil
-  :custom
-  (server-port 666)
-  (server-use-tcp t)
-  (server-name "demon"))
 
 
 ;; WINDOWS
