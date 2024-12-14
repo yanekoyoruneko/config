@@ -49,8 +49,11 @@
 
 ;; UI
 ;;
+(use-package delight)
+
 (use-package emacs
   :custom
+  (tramp-allow-unsafe-temporary-files t)
   (custom-enabled-themes '(modus-vivendi))
   (frame-title-format '("%b"))
   (menu-bar-mode nil)
@@ -76,16 +79,17 @@
   (subword-mode)
   :bind
   ("<f12>"   . modus-themes-toggle)
-					;  ("C-\\"    . indent-region)
   ("M-i"     . imenu)
   ("C-c C-c" . compile)
   ("C-x C-k" . kill-current-buffer)
   ("C-c s"   . shell)
   ("C-c p"   . find-file-at-point)
+  ("C-x C-k" . kill-this-buffer)
   ("C-x C-b" . ibuffer)
   ("C-?"     . undo-redo)
   ("C-/"     . undo-only)
   :custom
+  (confirm-kill-processes nil)
   (vc-follow-symlinks t)
   (disabled-command-function nil)
   (browse-url-browser-function 'eww)	; usefull for hyperspec
@@ -173,6 +177,9 @@
 (use-package expand-region
   :bind ("M-2" . er/expand-region))
 
+
+;; MAGIT
+(use-package magit)
 
 
 ;; DIRED
@@ -257,9 +264,11 @@
   :hook ((emacs-lisp-mode lisp-mode) . highlight-quoted-mode))
 
 (use-package easy-escape
+  :delight (easy-escape-minor-mode)
   :hook ((lisp-mode-hook emacs-lisp-mode) . easy-escape-minor-mode))
 
 (use-package paredit
+  :delight
   :hook (((emacs-lisp-mode lisp-mode sly-mode) . paredit-mode)
 	 (sly-mrepl-mode . (lambda () (unbind-key "RET" 'paredit-mode-map)))))
 
