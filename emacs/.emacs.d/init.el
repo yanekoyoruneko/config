@@ -80,7 +80,6 @@
   :bind
   ("<f12>"   . modus-themes-toggle)
   ("M-i"     . imenu)
-  ("C-c C-c" . compile)
   ("C-x C-k" . kill-current-buffer)
   ("C-c s"   . shell)
   ("C-c p"   . find-file-at-point)
@@ -107,6 +106,22 @@
   :hook
   (before-save . delete-trailing-whitespace)
   (prog-mode   . abbrev-mode))
+
+
+
+;;; COMPILE
+(use-package compile
+  :ensure nil
+  :bind ("<f4>" . compile)
+  :custom
+  (compilation-scroll-output t)
+  :init
+  (require 'ansi-color)
+  (defun colorize-compilation-buffer ()
+    (let ((inhibit-read-only t))
+      (ansi-color-apply-on-region (point-min) (point-max))))
+  :hook
+  (compilation-filter . colorize-compilation-buffer))
 
 
 
@@ -190,7 +205,9 @@
   :custom
   (dired-dwim-target t)
   (dired-auto-revert-buffer t)
-  (dired-listing-switches "-alh")
+  (dired-listing-switches "-alh --group-directories-first")
+  (dired-kill-when-opening-new-dired-buffer t)
+  (wdired-allow-to-change-permissions t)
   :config
   (require 'dired-x))
 
