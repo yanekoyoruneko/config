@@ -65,6 +65,7 @@
   (make-backup-files nil)
   (create-lockfiles nil)
   (display-line-numbers-type 'relative)
+  (column-number-mode t)
   :hook
   (prog-mode . display-line-numbers-mode)
   (prog-mode . prettify-symbols-mode))
@@ -77,6 +78,18 @@
   :delight
   (abbrev-mode " Abv" "abbrev")
   (subword-mode)
+  :config
+  (defun my-duplicate-line ()
+    "Duplicate current line"
+    (interactive)
+    (let ((column (- (point) (point-at-bol)))
+          (line (let ((s (thing-at-point 'line t)))
+                  (if s (string-remove-suffix "\n" s) ""))))
+      (move-end-of-line 1)
+      (newline)
+      (insert line)
+      (move-beginning-of-line 1)
+      (forward-char column)))
   :bind
   ("<f12>"   . modus-themes-toggle)
   ("M-i"     . imenu)
@@ -87,6 +100,7 @@
   ("C-x C-b" . ibuffer)
   ("C-?"     . undo-redo)
   ("C-/"     . undo-only)
+  ("C-,"     . my-duplicate-line)
   :custom
   (confirm-kill-processes nil)
   (vc-follow-symlinks t)
@@ -129,6 +143,43 @@
 (use-package windmove :config (windmove-default-keybindings))
 (use-package winner   :config (winner-mode))
 
+
+(use-package corfu
+  :ensure t
+  :init
+  (global-corfu-mode)  ;; Enable Corfu globally
+  :custom
+  (corfu-auto t)      ;; Automatically show completion popup
+  (corfu-auto-delay 0.1) ;; Delay before showing completions
+  (corfu-quit-no-match 'separator)
+  (corfu-min-width 20) ;; Minimum width of completion popup
+  (corfu-quit-at-boundary t)  ;; Don't close popup at buffer boundaries
+  (corfu-preview-current t)     ;; Preview current completion
+  :bind
+  (:map corfu-map
+        ("M-p" . corfu-scroll-up)    ;; Scroll up in completion list
+        ("M-n" . corfu-scroll-down)  ;; Scroll down in completion list
+        ("C-j" . corfu-select)       ;; Select current completion
+        ("C-h" . corfu-doc)          ;; Show documentation in popup
+        ("C-;" . corfu-clear)))   ;; Clear completions
+
+
+(use-package emacs
+  :custom
+  ;; TAB cycle if there are only few candidates
+  ;; (completion-cycle-threshold 3)
+
+  ;; Enable indentation+completion using the TAB key.
+  ;; `completion-at-point' is often bound to M-TAB.
+  (tab-always-indent 'complete)
+
+  ;; Emacs 30 and newer: Disable Ispell completion function.
+  ;; Try `cape-dict' as an alternative.
+  (text-mode-ispell-word-completion nil)
+  ;; Hide commands in M-x which do not apply to the current mode.  Corfu
+  ;; commands are hidden, since they are not used via M-x. This setting is
+  ;; useful beyond Corfu.
+  (read-extended-command-predicate #'command-completion-default-include-p))
 
 
 ;; FILL
@@ -164,14 +215,14 @@
   (completion-category-overrides
    '((file (styles . (basic partial-completion)))
      (imenu (styles . (basic substring)))
-     (eglot (styles . (emacs22 substring)))))
-  :bind (:map completion-in-region-mode-map
-	      ("C-n" . minibuffer-next-completion)
-	      ("C-p" . minibuffer-previous-completion)
-	      ("C-j" . minibuffer-choose-completion)
-	      :map minibuffer-mode-map
-	      ("C-n" . minibuffer-next-completion)
-	      ("C-p" . minibuffer-previous-completion)))
+     (eglot (styles . (emacs22 substring))))))
+;; :bind (:map completion-in-region-mode-map
+;; 	      ("C-n" . minibuffer-next-completion)
+;; 	      ("C-p" . minibuffer-previous-completion)
+;; 	      ("C-j" . minibuffer-choose-completion)
+;; 	      :map minibuffer-mode-map
+;; 	      ("C-n" . minibuffer-next-completion)
+;; 	      ("C-p" . minibuffer-previous-completion)))
 
 
 (use-package icomplete
@@ -203,6 +254,9 @@
   :ensure nil
   :bind ("C-x C-d" . dired)
   :custom
+  (dired-recursive-copies 'always)
+  (dired-recursive-deletes 'always)
+  (delete-by-moving-to-trash t)
   (dired-dwim-target t)
   (dired-auto-revert-buffer t)
   (dired-listing-switches "-alh --group-directories-first")
@@ -210,6 +264,12 @@
   (wdired-allow-to-change-permissions t)
   :config
   (require 'dired-x))
+
+(use-package tramp
+  :ensure nil
+  :config
+  (add-to-list 'tramp-connection-properties
+               (list (regexp-quote "/ssh:") "remote-shell" "/bin/bash")))
 
 
 
@@ -240,8 +300,23 @@
 	      ("C-c C-d" . eldoc)
               ("C-c r"   . eglot-rename)
               ("C-c f"   . eglot-format-buffer))
-  :hook ((c-mode tuareg-mode python-mode) . eglot-ensure))
+  :hook ((c-mode tuareg-mode python-mode java-mode) . eglot-ensure))
 
+(use-package yasnippet
+  :ensure t
+  :config
+  (yas-global-mode 1))
+
+(use-package cape
+  :ensure t)
+
+(defun my/eglot-capf ()
+  (setq-local completion-at-point-functions
+              (list (cape-super-capf
+                     #'eglot-completion-at-point
+                     (cape-company-to-capf #'company-yasnippet)))))
+
+(add-hook 'eglot-managed-mode-hook #'my/eglot-capf)
 
 (use-package flymake
   :bind
