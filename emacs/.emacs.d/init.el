@@ -22,6 +22,7 @@
 (eval-when-compile
   (defun emacs-path (path) (expand-file-name path user-emacs-directory))
   (setq custom-file (emacs-path "custom.el"))
+  (add-to-list 'load-path (emacs-path "lisp"))
   (when (file-exists-p custom-file) (load custom-file)))
 
 (require 'package)
@@ -56,7 +57,7 @@
   (tramp-allow-unsafe-temporary-files t)
   (custom-enabled-themes '(modus-vivendi))
   (frame-title-format '("%b"))
-  (menu-bar-mode nil)
+  (menu-bar-mode t)
   (tool-bar-mode nil)
   (inhibit-startup-screen t)
   (scroll-bar-mode nil)
@@ -82,14 +83,34 @@
   (defun my-duplicate-line ()
     "Duplicate current line"
     (interactive)
-    (let ((column (- (point) (point-at-bol)))
-          (line (let ((s (thing-at-point 'line t)))
-                  (if s (string-remove-suffix "\n" s) ""))))
+    (let ((column (current-column)))
       (move-end-of-line 1)
       (newline)
-      (insert line)
+      (copy-from-above-command)
       (move-beginning-of-line 1)
       (forward-char column)))
+  (defun my-start-python-http-server ()
+    (interactive)
+    (shell-command "python3 -m http.server 3001 &"
+                   "*Simple Python HTTP Server*"))
+  (defun my-unfill-paragraph ()
+    (interactive)
+    (let ((fill-column most-positive-fixnum))
+      (fill-paragraph)))
+  (defun my-pretty-print-xml-region (begin end)
+    "Pretty format XML markup in region. You need to have nxml-mode
+http://www.emacswiki.org/cgi-bin/wiki/NxmlMode installed to do
+this.  The function inserts linebreaks to separate tags that have
+nothing but whitespace between them.  It then indents the markup
+by using nxml's indentation rules."
+    (interactive "r")
+    (save-excursion
+      (nxml-mode)
+      (goto-char begin)
+      (while (search-forward-regexp "\>[ \\t]*\<" nil t)
+        (backward-char) (insert "\n") (setq end (1+ end)))
+      (indent-region begin end))
+    (message "Ah, much better!"))
   :bind
   ("<f12>"   . modus-themes-toggle)
   ("M-i"     . imenu)
@@ -100,8 +121,11 @@
   ("C-x C-b" . ibuffer)
   ("C-?"     . undo-redo)
   ("C-/"     . undo-only)
+  ("C-x p s" . my-start-python-http-server)
   ("C-,"     . my-duplicate-line)
+  ("C-c M-q" . my-unfill-paragraph)
   :custom
+  (nxml-slash-auto-complete-flag t)
   (confirm-kill-processes nil)
   (vc-follow-symlinks t)
   (disabled-command-function nil)
@@ -116,7 +140,15 @@
   (global-auto-revert-mode t)
   (electric-pair-mode t)
   (tab-always-indent 'complete)
-  (c-default-style "linux")
+  ;; (indent-tabs-mode nil)
+  ;; (tab-width 4)
+  ;; (c-basic-offset 4)
+  ;; google formatting
+  (load "google-c-style")
+  (autoload 'google-set-c-style "google-c-style")
+  (autoload 'google-make-newline-indent "google-c-style")
+  (add-hook 'c-mode-common-hook 'google-set-c-style)
+  ;; (add-hook 'c-mode-common-hook 'google-make-newline-indent)
   :hook
   (before-save . delete-trailing-whitespace)
   (prog-mode   . abbrev-mode))
@@ -144,24 +176,24 @@
 (use-package winner   :config (winner-mode))
 
 
-(use-package corfu
-  :ensure t
-  :init
-  (global-corfu-mode)  ;; Enable Corfu globally
-  :custom
-  (corfu-auto t)      ;; Automatically show completion popup
-  (corfu-auto-delay 0.1) ;; Delay before showing completions
-  (corfu-quit-no-match 'separator)
-  (corfu-min-width 20) ;; Minimum width of completion popup
-  (corfu-quit-at-boundary t)  ;; Don't close popup at buffer boundaries
-  (corfu-preview-current t)     ;; Preview current completion
-  :bind
-  (:map corfu-map
-        ("M-p" . corfu-scroll-up)    ;; Scroll up in completion list
-        ("M-n" . corfu-scroll-down)  ;; Scroll down in completion list
-        ("C-j" . corfu-select)       ;; Select current completion
-        ("C-h" . corfu-doc)          ;; Show documentation in popup
-        ("C-;" . corfu-clear)))   ;; Clear completions
+;; (use-package corfu
+;;   :ensure t
+;;   :init
+;;   (global-corfu-mode)  ;; Enable Corfu globally
+;;   :custom
+;;   (corfu-auto t)      ;; Automatically show completion popup
+;;   (corfu-auto-delay 0.1) ;; Delay before showing completions
+;;   (corfu-quit-no-match 'separator)
+;;   (corfu-min-width 20) ;; Minimum width of completion popup
+;;   (corfu-quit-at-boundary t)  ;; Don't close popup at buffer boundaries
+;;   (corfu-preview-current t)     ;; Preview current completion
+;;   :bind
+;;   (:map corfu-map
+;;         ("M-p" . corfu-scroll-up)    ;; Scroll up in completion list
+;;         ("M-n" . corfu-scroll-down)  ;; Scroll down in completion list
+;;         ("C-j" . corfu-select)       ;; Select current completion
+;;         ("C-h" . corfu-doc)          ;; Show documentation in popup
+;;         ("C-;" . corfu-clear)))   ;; Clear completions
 
 
 (use-package emacs
@@ -265,12 +297,15 @@
   :config
   (require 'dired-x))
 
+(use-package which-key
+  :init
+  (which-key-mode))
+
 (use-package tramp
   :ensure nil
   :config
   (add-to-list 'tramp-connection-properties
                (list (regexp-quote "/ssh:") "remote-shell" "/bin/bash")))
-
 
 
 ;; IM BAD IN SPELING
@@ -294,13 +329,13 @@
 
 ;; LSP
 ;;
-(use-package eglot
-  :delight (eldoc-mode nil "eldoc")
-  :bind (:map eglot-mode-map
-	      ("C-c C-d" . eldoc)
-              ("C-c r"   . eglot-rename)
-              ("C-c f"   . eglot-format-buffer))
-  :hook ((c-mode tuareg-mode python-mode java-mode) . eglot-ensure))
+;; (use-package eglot
+;;   :delight (eldoc-mode nil "eldoc")
+;;   :bind (:map eglot-mode-map
+;; 	      ("C-c C-d" . eldoc)
+;;               ("C-c r"   . eglot-rename)
+;;               ("C-c f"   . eglot-format-buffer))
+;;   :hook ((c-mode tuareg-mode python-mode java-mode) . eglot-ensure))
 
 (use-package yasnippet
   :ensure t
@@ -310,13 +345,44 @@
 (use-package cape
   :ensure t)
 
-(defun my/eglot-capf ()
-  (setq-local completion-at-point-functions
-              (list (cape-super-capf
-                     #'eglot-completion-at-point
-                     (cape-company-to-capf #'company-yasnippet)))))
+;; (defun my/eglot-capf ()
+;;   (setq-local completion-at-point-functions
+;;               (list (cape-super-capf
+;;                      #'eglot-completion-at-point
+;;                      (cape-company-to-capf #'company-yasnippet)))))
 
-(add-hook 'eglot-managed-mode-hook #'my/eglot-capf)
+;; (add-hook 'eglot-managed-mode-hook #'my/eglot-capf)
+
+(use-package lsp-mode
+  :hook (java-mode . lsp)
+  :ensure t)
+
+(use-package company
+  :ensure t)
+
+(use-package lsp-java
+  :ensure t)
+
+(add-to-list 'load-path (emacs-path "lsp-docker"))
+(require 'lsp-docker)
+(defvar lsp-docker-client-packages
+  '(lsp-css lsp-clients lsp-bash lsp-go lsp-pylsp lsp-html lsp-typescript
+            lsp-terraform lsp-clangd))
+
+(setq lsp-docker-client-configs
+      '((:server-id bash-ls :docker-server-id bashls-docker :server-command "bash-language-server start")
+        (:server-id clangd :docker-server-id clangd-docker :server-command "clangd")
+        (:server-id css-ls :docker-server-id cssls-docker :server-command "css-languageserver --stdio")
+        (:server-id gopls :docker-server-id gopls-docker :server-command "gopls")
+        (:server-id html-ls :docker-server-id htmls-docker :server-command "html-languageserver --stdio")
+        (:server-id pylsp :docker-server-id pyls-docker :server-command "pylsp")))
+
+(require 'lsp-docker)
+(lsp-docker-init-clients
+ :path-mappings '(("/home/yan3k/doc" . "/projects"))
+ :client-packages lsp-docker-client-packages
+ :client-configs lsp-docker-client-configs)
+
 
 (use-package flymake
   :bind
